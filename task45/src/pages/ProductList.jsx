@@ -1,5 +1,16 @@
 import React, {useEffect, useState} from 'react';
+import ProductItem from "./ProductItem.jsx";
 const url = "https://dummyjson.com/products"
+const fetchApi = async (limit, page, signal) => {
+    console.log(signal)
+    try {
+        const response = await fetch(`${url}?limit=${limit}&skip=${(page - 1) * limit}`, {signal})
+        const data = await response.json()
+        return data
+    } catch (error) {
+        console.error(error);
+    }
+}
 const ProductList = () => {
     const [products, setProducts] = useState([])
     const [limit, setLimit] = useState(12)
@@ -7,19 +18,23 @@ const ProductList = () => {
     const [total, setTotal] = useState(0)
     const totalPage = Math.ceil(total / limit)
     const number = [...Array(totalPage).keys()]
-    const fetchApi = async () => {
-        try {
-            const response = await fetch(`${url}?limit=${limit}&skip=${(page - 1) * limit}`)
-            const data = await response.json()
-            setProducts(data.products)
-            setTotal(data.total)
-        } catch (error) {
-            console.error(error);
-        }
-    }
+
     useEffect(() => {
-        if (limit) {
-            fetchApi()
+        let controller = new AbortController()
+        const signal = controller.signal
+        const fetchData = async () => {
+            try {
+                const res = await fetchApi(limit, page, signal)
+                console.log(res)
+                setProducts(res.products)
+                setTotal(res.total)
+            } catch (error) {
+                console.error(error);
+            }
+        }
+        fetchData()
+        return () => {
+            controller.abort()
         }
     }, [limit,page]);
     const handlePrev = () => {
@@ -33,11 +48,21 @@ const ProductList = () => {
         }
     }
     const [search, setSearch] = useState('')
-    const [sortPrice, setSortPrice] = useState('')
+    const [sortPrice, setSortPrice] = useState('all')
 
-    const handleSelectOption = (e) => {
-        setLimit(e.target.value)
-    }
+    const filterSort = (() => {
+        let filtered = products.filter((item) =>
+            item.title.toLowerCase().includes(search.toLowerCase())
+        );
+
+        if (sortPrice === "asc") {
+            return [...filtered].sort((a, b) => a.price - b.price);
+        }
+        if (sortPrice === "desc") {
+            return [...filtered].sort((a, b) => b.price - a.price);
+        }
+        return filtered;
+    })();
   return (
     <>
         <div className={"container"}>
@@ -50,33 +75,14 @@ const ProductList = () => {
             <div className="col-md-4">
                 <select onChange={(e) => setSortPrice(e.target.value)} className="form-select mb-3 mt-3"
                         aria-label="Default select example">
-                    <option>Chọn giá</option>
+                    <option value="all">Chọn giá</option>
                     <option value="desc">Cao → Thấp</option>
                     <option value="asc">Thấp → Cao</option>
                 </select>
             </div>
             <div className={"row"}>
-                {products.sort((a,b) => {
-                    if (sortPrice === "desc"){
-                        return b.price - a.price
-                    }
-                    if (sortPrice === "asc"){
-                        return a.price - b.price
-                    }
-                    return 0
-                }).filter((item) => {
-                return item.title.toLowerCase().includes(search.toLowerCase())
-                }).map((item) => (
-                    <div key={item.id} className={"col-12 col-md-6 col-lg-4 col-xl-3 mb-3"}>
-                        <div className="card">
-                            <img src={item.thumbnail} className="card-img-top" alt="..." width={"100%"}/>
-                            <div className="card-body">
-                                <h5 className="card-title">{item.title}</h5>
-                                <p className="card-text">{item.price}</p>
-                                <a href="#" className="btn btn-primary">Go somewhere</a>
-                            </div>
-                        </div>
-                    </div>
+                {filterSort.map((item) => (
+                    <ProductItem key={item.id} products={item}/>
                 ))}
                 <div className="row align-items-center justify-content-between">
                     <div className="col-auto">
@@ -87,7 +93,6 @@ const ProductList = () => {
                                         &laquo;
                                     </button>
                                 </li>
-
                                 {number.map((item) => (
                                     <li
                                         key={item}
@@ -98,7 +103,6 @@ const ProductList = () => {
                                         </button>
                                     </li>
                                 ))}
-
                                 <li className={`page-item ${page === number.length ? 'disabled' : ''}`}>
                                     <button className="page-link" onClick={handleNext} aria-label="Next">
                                         &raquo;
