@@ -24,16 +24,12 @@ const ProductList = () => {
         const signal = controller.signal
         const fetchData = async () => {
             try {
-                const res = await fetchApi(limit, page, signal);
-                if (!res) return; // ngăn không đọc res.products nếu res là undefined
-                setProducts(res.products || []);
-                setTotal(res.total || 0);
+                const res = await fetchApi(limit, page, signal)
+                console.log(res)
+                setProducts(res.products)
+                setTotal(res.total)
             } catch (error) {
-                if (error.name === 'AbortError') {
-                    console.log('Request bị huỷ.');
-                } else {
-                    console.error(error);
-                }
+                console.error(error);
             }
         }
         fetchData()
